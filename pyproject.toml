@@ -1,0 +1,15 @@
+[project]
+name = "cloud-hw2"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiostream>=0.7.1",
+    "beanie>=2.0.1",
+    "fastapi>=0.125.0",
+    "fastapi-pagination>=0.15.4",
+    "pymongo>=4.15.5",
+    "tzdata>=2025.3",
+    "uvicorn>=0.38.0",
+]
