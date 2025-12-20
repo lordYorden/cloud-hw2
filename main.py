@@ -10,15 +10,27 @@ from fastapi import Depends
 from fastapi_pagination import Params, add_pagination, set_page
 from pagination import ZeroBasedPage, ZeroBasedParams
 from utils import sse_stream
+from testcontainers.compose import DockerCompose
 
 client = None
+compose = DockerCompose(".", compose_file_name="compose.yml")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    
+    compose.start()
+    
+    print("Waiting for MongoDB to be ready...")
+    
+    host = compose.get_service_host("mongodb", 27017)
+    port = compose.get_service_port("mongodb", 27017)
+    
+    db_url = f"mongodb://{host}:{port}"
     # startup
-    await init_db()
+    await init_db(db_url)
     yield
     # Clean up 
+    compose.stop()
     #ml_models.clear()
 
 
@@ -26,10 +38,10 @@ app = FastAPI(lifespan=lifespan)
 set_page(ZeroBasedPage)
 add_pagination(app)
 
-async def init_db():
+async def init_db(db_url: str):
     global client
     
-    client = AsyncMongoClient("mongodb://localhost:27017")
+    client = AsyncMongoClient(db_url)
 
     # This line triggers the creation of the Unique Indexes defined in Annotated
     await init_beanie(database=client.chat_db, document_models=[Message])
