@@ -5,22 +5,23 @@ from contextlib import asynccontextmanager
 from Messages import Message
 from beanie import init_beanie
 from datetime import datetime
+import logging
 from Flux import to_flux
 from fastapi import Depends
-from fastapi_pagination import Params, add_pagination, set_page
+from fastapi_pagination import add_pagination, set_page
 from pagination import ZeroBasedPage, ZeroBasedParams
 from utils import sse_stream
 from testcontainers.compose import DockerCompose
 
 client = None
 compose = DockerCompose(".", compose_file_name="compose.yml")
+logger = logging.getLogger("uvicorn.error")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.debug("Starting up mongo")
     
     compose.start()
-    
-    print("Waiting for MongoDB to be ready...")
     
     host = compose.get_service_host("mongodb", 27017)
     port = compose.get_service_port("mongodb", 27017)
@@ -28,11 +29,12 @@ async def lifespan(app: FastAPI):
     db_url = f"mongodb://{host}:{port}"
     # startup
     await init_db(db_url)
+    
+    logger.info("DB initialized")
+    
     yield
     # Clean up 
     compose.stop()
-    #ml_models.clear()
-
 
 app = FastAPI(lifespan=lifespan)
 set_page(ZeroBasedPage)
@@ -58,7 +60,7 @@ async def seed_data():
         ]
         
         await Message.insert_many(messages)
-        print("Database seeded successfully.")
+        logger.debug("Database seeded successfully.")
 
 @app.post("/message")
 async def create_message(message: Message):
@@ -81,4 +83,5 @@ async def get_messages(params: ZeroBasedParams = Depends()):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="localhost", port=8080)
+
+    uvicorn.run(app, host="localhost", port=8080, log_level="debug")

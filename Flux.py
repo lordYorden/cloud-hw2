@@ -13,8 +13,6 @@ class Flux:
         Operator that applies FastAPI pagination parameters to the source.
         Works with Beanie/Pymongo queries.
         """
-        # Convert page/size to MongoDB skip/limit
-        # Params defaults to page 1, size 50
         limit = params.size
         skip = params.page * params.size
         
@@ -38,12 +36,10 @@ class Flux:
         Terminal operator: Returns a stream that formats items as SSE.
         This mimics Flux.map(toSSE).
         """
-        # We wrap the existing stream in a mapper for SSE formatting
         self._current_stream = stream.map(
             self._current_stream,
             lambda x: f"data: {x if isinstance(x, str) else json.dumps(x)}\n\n"
         )
-        # We return the aiostream object itself, which IS an AsyncIterable.
         return self
 
     async def __aiter__(self):
@@ -51,7 +47,6 @@ class Flux:
         This allows the FluentStream object to be iterated directly:
         'async for x in fluent_stream:'
         """
-        # aiostream requires a context manager to handle the lifecycle
         async with self._current_stream.stream() as streamer:
             async for item in streamer:
                 yield item
