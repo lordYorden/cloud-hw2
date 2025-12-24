@@ -9,6 +9,7 @@ dependencies = [
     "beanie>=2.0.1",
     "fastapi>=0.125.0",
     "fastapi-pagination>=0.15.4",
+    "pydantic[email]>=2.12.5",
     "pymongo>=4.15.5",
     "testcontainers>=4.13.3",
     "tzdata>=2025.3",

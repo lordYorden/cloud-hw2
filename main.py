@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from pymongo import AsyncMongoClient
 from contextlib import asynccontextmanager
-from Messages import MessageBoudary, MessageEntity
+from Messages import MessageBoudary, MessageEntity, Criteria
 from beanie import init_beanie
 from datetime import datetime
 import logging
@@ -12,6 +12,8 @@ from fastapi_pagination import add_pagination, set_page
 from pagination import ZeroBasedPage, ZeroBasedParams
 from utils import sse_stream
 from testcontainers.compose import DockerCompose
+from datagen import seed_data
+import re
 
 client = None
 compose = DockerCompose(".", compose_file_name="compose.yml")
@@ -49,19 +51,8 @@ async def init_db(db_url: str):
     # This line triggers the creation of the Unique Indexes defined in Annotated
     await init_beanie(database=client.chat_db, document_models=[MessageEntity])
     await seed_data()
+    logger.debug("Database seeded successfully.")
 
-async def seed_data():
-    count = await MessageEntity.count()
-    
-    if count == 0:
-        messages = [
-            MessageEntity(message="Hello reactive world"),
-            MessageEntity(message="Streaming is efficient"),
-            MessageEntity(message="Python is fast too"),
-        ]
-        
-        await MessageEntity.insert_many(messages)
-        logger.debug("Database seeded successfully.")
 
 @app.post("/message", response_model=MessageBoudary)
 async def create_message(message: MessageBoudary):
@@ -75,13 +66,29 @@ async def create_message(message: MessageBoudary):
 
 @app.get("/messages")
 @sse_stream(model=MessageBoudary)
-async def get_messages(params: ZeroBasedParams = Depends()):
+async def get_messages(
+    criteria: Criteria | None = None, 
+    value: str | None = None,
+    params: ZeroBasedParams = Depends()):
+
     cursor = MessageEntity.find({})
-    return (
+
+    messageFlux = (
         to_flux(cursor)
         .paginate(params)
         .map(lambda m: MessageBoudary.from_entity(m))
     )
+
+    if criteria == Criteria.RECIPIENT and value:
+        messageFlux = messageFlux.filter(lambda m: m.target == value)
+    elif criteria == Criteria.SENDER and value:
+        messageFlux = messageFlux.filter(lambda m: m.sender == value)
+
+    return messageFlux
+
+@app.delete("/messages", status_code=204)
+async def delete_all_messages():
+    await MessageEntity.delete_many({})
 
 if __name__ == "__main__":
 

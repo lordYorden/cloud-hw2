@@ -3,14 +3,18 @@ from typing import Optional
 from beanie import Document, Indexed
 from pydantic import Field, BaseModel
 from zoneinfo import ZoneInfo
-from typing import Annotated
+from enum import Enum
 from beanie import Document, PydanticObjectId
-from pydantic import Field, BaseModel, model_validator, field_serializer, model_serializer
+from pydantic import Field, BaseModel, model_validator, field_serializer, EmailStr
 
 ZONE = ZoneInfo('Asia/Jerusalem')
 
 class MessageEntity(Document):
     message: str
+    target: EmailStr
+    sender: EmailStr
+    title: str
+    urgent: bool = Field(default=False)
     publicationTimestamp: datetime = Field(default_factory=lambda: datetime.now(ZONE))
 
     @model_validator(mode="before")
@@ -29,17 +33,24 @@ class MessageEntity(Document):
 
 class MessageBoudary(BaseModel):
     id: Optional[str]
+    target: EmailStr
+    sender: EmailStr
+    title: str
+    urgent: bool
     message: str
-    publicationTimestamp: datetime = Field(default_factory=lambda: datetime.now(ZONE))
+    publicationTimestamp: datetime
 
     @classmethod
     def from_entity(cls, entity: MessageEntity):
         return cls(
             id=str(entity.id) if entity.id else None,
             message=entity.message,
-            publicationTimestamp=entity.publicationTimestamp
+            publicationTimestamp=entity.publicationTimestamp,
+            target=entity.target,
+            sender=entity.sender,
+            title=entity.title,
+            urgent=entity.urgent,
         )
-
     
     def to_entity(self) -> MessageEntity:
         data = self.model_dump()
@@ -52,3 +63,6 @@ class MessageBoudary(BaseModel):
         if value:
             return value.astimezone(ZONE).isoformat(timespec='milliseconds')
         return None
+class Criteria(Enum):
+    RECIPIENT = "byRecipient"
+    SENDER = "bySender"

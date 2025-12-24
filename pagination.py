@@ -8,6 +8,7 @@ from pydantic import Field
 class ZeroBasedParams(Params):
     """Pagination parameters with 0-indexed page numbers."""
     page: int = Query(0, ge=0, description="Page number (0-indexed)")
+    size: int = Query(10, ge=1, description="Number of items per page")
 
     def to_raw_params(self) -> RawParams:
         return RawParams(
