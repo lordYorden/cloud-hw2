@@ -1,5 +1,5 @@
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from pymongo import AsyncMongoClient
 from contextlib import asynccontextmanager
 from Messages import MessageBoudary, MessageEntity, Criteria
@@ -60,6 +60,8 @@ async def create_message(message: MessageBoudary):
     message.publicationTimestamp = datetime.now()
     message.id = None
 
+    #exception_test()
+
     entity = message.to_entity()
     rv = await MessageEntity.insert_one(entity)
     return MessageBoudary.from_entity(rv)
@@ -77,6 +79,7 @@ async def get_messages(
         to_flux(cursor)
         .paginate(params)
         .map(lambda m: MessageBoudary.from_entity(m))
+        #.map(lambda m: exception_test())
     )
 
     if criteria == Criteria.RECIPIENT and value:
@@ -86,9 +89,19 @@ async def get_messages(
 
     return messageFlux
 
+
+def exception_test():
+    raise ValueError("This is a test exception")
+
 @app.delete("/messages", status_code=204)
 async def delete_all_messages():
     await MessageEntity.delete_many({})
+
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
+
 
 if __name__ == "__main__":
 

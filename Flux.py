@@ -1,5 +1,5 @@
 import json
-from typing import Any, AsyncIterable, Callable
+from typing import Any, AsyncIterable, Callable, Optional
 from aiostream import stream
 from fastapi_pagination import Params
 
@@ -7,6 +7,7 @@ class Flux:
     def __init__(self, source: AsyncIterable):
         self._current_stream = stream.iterate(source)
         self._source = source
+        self._error_handler: Optional[Callable[[Exception], Any]] = None
         
     def paginate(self, params: Params) -> "Flux":
         """
@@ -21,6 +22,10 @@ class Flux:
         if hasattr(self._source, "limit"):
             self._source = self._source.limit(limit)
             
+        return self
+    
+    def on_error(self, handler: Callable[[Exception], Any]) -> "Flux":
+        self._error_handler = handler
         return self
 
     def map(self, func: Callable[[Any], Any]) -> "Flux":
@@ -47,9 +52,14 @@ class Flux:
         This allows the FluentStream object to be iterated directly:
         'async for x in fluent_stream:'
         """
-        async with self._current_stream.stream() as streamer:
-            async for item in streamer:
-                yield item
+        try:
+            async with self._current_stream.stream() as streamer:
+                async for item in streamer:
+                    yield item
+        except Exception as e:
+            if self._error_handler:
+                error_item = self._error_handler(e)
+                yield error_item
 
 def to_flux(iterable: AsyncIterable) -> Flux:
     return Flux(iterable)
