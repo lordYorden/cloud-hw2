@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from pymongo import AsyncMongoClient
 from contextlib import asynccontextmanager
-from Messages import Message
+from Messages import MessageBoudary, MessageEntity
 from beanie import init_beanie
 from datetime import datetime
 import logging
@@ -35,6 +35,7 @@ async def lifespan(app: FastAPI):
     yield
     # Clean up 
     compose.stop()
+    logger.debug("Mongo stopped")
 
 app = FastAPI(lifespan=lifespan)
 set_page(ZeroBasedPage)
@@ -46,42 +47,43 @@ async def init_db(db_url: str):
     client = AsyncMongoClient(db_url)
 
     # This line triggers the creation of the Unique Indexes defined in Annotated
-    await init_beanie(database=client.chat_db, document_models=[Message])
+    await init_beanie(database=client.chat_db, document_models=[MessageEntity])
     await seed_data()
 
 async def seed_data():
-    count = await Message.count()
+    count = await MessageEntity.count()
     
     if count == 0:
         messages = [
-            Message(message="Hello reactive world"),
-            Message(message="Streaming is efficient"),
-            Message(message="Python is fast too"),
+            MessageEntity(message="Hello reactive world"),
+            MessageEntity(message="Streaming is efficient"),
+            MessageEntity(message="Python is fast too"),
         ]
         
-        await Message.insert_many(messages)
+        await MessageEntity.insert_many(messages)
         logger.debug("Database seeded successfully.")
 
-@app.post("/message")
-async def create_message(message: Message):
+@app.post("/message", response_model=MessageBoudary)
+async def create_message(message: MessageBoudary):
     
-    message.created_at = datetime.now()
+    message.publicationTimestamp = datetime.now()
     message.id = None
-    
-    return await Message.insert_one(message)
+
+    entity = message.to_entity()
+    rv = await MessageEntity.insert_one(entity)
+    return MessageBoudary.from_entity(rv)
 
 @app.get("/messages")
-@sse_stream
+@sse_stream(model=MessageBoudary)
 async def get_messages(params: ZeroBasedParams = Depends()):
-    cursor = Message.find({})
+    cursor = MessageEntity.find({})
     return (
         to_flux(cursor)
         .paginate(params)
-        # .filter(lambda m: "hi" in m.message.lower())
-        .map(lambda m: m.model_dump_json())
+        .map(lambda m: MessageBoudary.from_entity(m))
     )
 
 if __name__ == "__main__":
-    import uvicorn
 
+    import uvicorn
     uvicorn.run(app, host="localhost", port=8080, log_level="debug")
