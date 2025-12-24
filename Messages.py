@@ -1,11 +1,12 @@
 from datetime import datetime
-from typing import Optional
-from beanie import Document, Indexed
-from pydantic import Field, BaseModel
+from typing import Optional, Any, Dict
+from beanie import Document
+from pydantic import Field, EmailStr, BaseModel, Json
 from zoneinfo import ZoneInfo
 from enum import Enum
 from beanie import Document, PydanticObjectId
-from pydantic import Field, BaseModel, model_validator, field_serializer, EmailStr
+from pydantic import model_validator, field_serializer
+import json
 
 ZONE = ZoneInfo('Asia/Jerusalem')
 
@@ -16,6 +17,7 @@ class MessageEntity(Document):
     title: str
     urgent: bool = Field(default=False)
     publicationTimestamp: datetime = Field(default_factory=lambda: datetime.now(ZONE))
+    moreDetails: Dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
@@ -36,6 +38,7 @@ class MessageBoudary(BaseModel):
     target: EmailStr
     sender: EmailStr
     title: str
+    moreDetails: Dict[str, Any] = Field(default_factory=dict)
     urgent: bool
     message: str
     publicationTimestamp: datetime
@@ -50,6 +53,7 @@ class MessageBoudary(BaseModel):
             sender=entity.sender,
             title=entity.title,
             urgent=entity.urgent,
+            moreDetails=entity.moreDetails
         )
     
     def to_entity(self) -> MessageEntity:

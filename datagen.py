@@ -9,20 +9,23 @@ async def seed_data():
                 message="Hello reactive world",
                 target="receiver@example.com",
                 sender="sender@example.com",
-                title="Greeting"
+                title="Greeting",
+                moreDetails={"info": "This is a test message"}
             ),
             MessageEntity(
                 message="Streaming is efficient",
                 target="receiver@example.com",
                 sender="sender@example.com",
-                title="Architecture Update"
+                title="Architecture Update",
+                moreDetails={"info": "Streaming over REST is efficient"}
             ),
             MessageEntity(
                 message="Python is fast too",
                 target="receiver@example.com",
                 sender="sender@example.com",
                 title="Performance Review",
-                urgent=True
+                urgent=True,
+                moreDetails={"info": "Python with async can be fast"}
             ),
         ]
         
